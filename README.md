@@ -17,6 +17,10 @@ A small Windows tray app for turning Riot Vanguard on and off without digging th
 - Optional autostart with Windows
 - Light, Dark and Dracula themes
 
+## Download
+
+Grab the installer or the portable `.zip` from [Releases](https://github.com/naisyrkdev/vg-switcher/releases).
+
 ## Build
 
 ```sh

@@ -1,5 +1,7 @@
 #define MyAppName "VG Switcher"
-#define MyAppVersion "0.5.0"
+#ifndef MyAppVersion
+  #define MyAppVersion "0.5.0"
+#endif
 #define MyAppPublisher "VG Switcher"
 #define MyAppExeName "VG_Switcher.exe"
 
