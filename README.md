@@ -31,11 +31,15 @@ cargo build --release
 
 The binary lands in `target/release/VG_Switcher.exe`. It requires administrator rights to run.
 
+Run the tests with `cargo test`.
+
 To build the installer, compile `installer/VG_Switcher.iss` with [Inno Setup](https://jrsoftware.org/isinfo.php).
 
-## Note
+## Notes
 
-Changes to Vanguard's services take effect after a reboot.
+- Changes to Vanguard's services take effect after a reboot.
+- Settings and the log are stored in `%ProgramData%\VG_Switcher`, writable only by administrators (the app runs elevated and executes the configured commands). Settings from older versions in `%APPDATA%\VG_Switcher` are moved there automatically.
+- For autostart, prefer the installer: the autostart task runs the exe with administrator rights, so it should live in Program Files rather than a user-writable folder.
 
 ## License
 

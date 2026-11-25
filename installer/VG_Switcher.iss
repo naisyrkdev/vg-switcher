@@ -1,6 +1,7 @@
 #define MyAppName "VG Switcher"
 #ifndef MyAppVersion
-  #define MyAppVersion "0.5.0"
+  ; Read from the built exe: winresource stamps the Cargo.toml version into it.
+  #define MyAppVersion GetStringFileInfo(SourcePath + "..\target\release\VG_Switcher.exe", "ProductVersion")
 #endif
 #define MyAppPublisher "VG Switcher"
 #define MyAppExeName "VG_Switcher.exe"
@@ -48,6 +49,8 @@ begin
   Exec('taskkill.exe', '/F /IM {#MyAppExeName} /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
+// Settings and log live in %ProgramData%\VG_Switcher (admin-only). They are
+// kept on uninstall so a reinstall keeps the user's commands.
 procedure RemoveAutostartTask;
 var
   ResultCode: Integer;
