@@ -231,6 +231,7 @@ struct Ui {
     disable_btn: nwg::Button,
     commands_settings_btn: nwg::Button,
     general_settings_btn: nwg::Button,
+    hide_btn: nwg::Button,
     minimize_btn: nwg::Button,
     close_btn: nwg::Button,
     timer: nwg::AnimationTimer,
@@ -269,6 +270,16 @@ struct SettingsUi {
     close_btn: nwg::Button,
 }
 
+/// Shown after enabling Vanguard from a disabled state: the service start
+/// types only take effect on the next boot.
+struct RebootUi {
+    window: nwg::Window,
+    // Never read, but owning it keeps the control alive.
+    _message_label: nwg::Label,
+    reboot_now_btn: nwg::Button,
+    reboot_later_btn: nwg::Button,
+}
+
 struct TrayHandles {
     icon: TrayIcon,
     status_item: MenuItem,
@@ -287,6 +298,7 @@ struct AppState {
     ui: Ui,
     commands_ui: CommandsUi,
     settings_ui: SettingsUi,
+    reboot_ui: RebootUi,
     last_poll: Cell<Instant>,
     editing_enable: Cell<bool>,
     editing_disable: Cell<bool>,
@@ -513,11 +525,13 @@ fn relayout(ui: &Ui) {
     ui.general_settings_btn.set_size(170, BUTTON_H as u32);
     y += BUTTON_H + SECTION_GAP;
 
-    let close_x = (w - MARGIN - 80).max(MARGIN + 120);
+    let close_x = (w - MARGIN - 80).max(MARGIN + 210);
     ui.close_btn.set_position(close_x, y);
     ui.close_btn.set_size(80, BUTTON_H as u32);
     ui.minimize_btn.set_position(close_x - 120, y);
     ui.minimize_btn.set_size(110, BUTTON_H as u32);
+    ui.hide_btn.set_position(close_x - 210, y);
+    ui.hide_btn.set_size(80, BUTTON_H as u32);
 }
 
 /// Lays out the Commands Settings window: the two command boxes share
@@ -612,11 +626,17 @@ fn apply_theme(app: &Rc<AppState>, theme: Theme) {
 }
 
 fn run_enable(app: &AppState) {
+    let service = app.config.borrow().status_service.clone();
+    let was_disabled = vanguard::get_status(&service) == VanguardStatus::Disabled;
     let cmds = app.config.borrow().enable_commands.clone();
     if let Err(e) = vanguard::run_commands(&cmds) {
         show_error(&format!("Failed to enable Vanguard:\n{e}"));
     }
     refresh_status(app);
+    if was_disabled && vanguard::get_status(&service) == VanguardStatus::Enabled {
+        app.reboot_ui.window.set_visible(true);
+        app.reboot_ui.window.set_focus();
+    }
 }
 
 fn run_disable(app: &AppState) {
@@ -680,6 +700,7 @@ fn build_main_ui(bold_font: &nwg::Font, app_icon: &nwg::Icon) -> Ui {
     let disable_btn = build_button(&window, "DISABLE NOW");
     let commands_settings_btn = build_button(&window, "COMMANDS SETTINGS");
     let general_settings_btn = build_button(&window, "GENERAL SETTINGS");
+    let hide_btn = build_button(&window, "HIDE");
     let minimize_btn = build_button(&window, "MINIMIZE");
     let close_btn = build_button(&window, "CLOSE");
 
@@ -695,7 +716,7 @@ fn build_main_ui(bold_font: &nwg::Font, app_icon: &nwg::Icon) -> Ui {
             darkmode::make_filled_button(h, role);
         }
     }
-    for btn in [&commands_settings_btn, &general_settings_btn, &minimize_btn] {
+    for btn in [&commands_settings_btn, &general_settings_btn, &hide_btn, &minimize_btn] {
         if let Some(h) = btn.handle.hwnd() {
             darkmode::make_text_button(h, Role::Primary);
         }
@@ -730,6 +751,7 @@ fn build_main_ui(bold_font: &nwg::Font, app_icon: &nwg::Icon) -> Ui {
         disable_btn,
         commands_settings_btn,
         general_settings_btn,
+        hide_btn,
         minimize_btn,
         close_btn,
         timer,
@@ -856,6 +878,44 @@ fn build_settings_ui(bold_font: &nwg::Font, app_icon: &nwg::Icon) -> SettingsUi 
     SettingsUi { window, _theme_label: theme_label, current_theme_label, light_btn, dracula_btn, dark_btn, close_btn }
 }
 
+fn build_reboot_ui(app_icon: &nwg::Icon) -> RebootUi {
+    let mut window = nwg::Window::default();
+    nwg::Window::builder()
+        .flags(nwg::WindowFlags::WINDOW)
+        .size((460, 150))
+        .position((400, 220))
+        .title("VG Switcher - Reboot required")
+        .icon(Some(app_icon))
+        .build(&mut window)
+        .unwrap();
+    let hwnd = window.handle.hwnd().expect("reboot window hwnd");
+    darkmode::apply_titlebar_theme(hwnd);
+    darkmode::install_dark_background(hwnd);
+
+    let message_label = build_label(
+        &window,
+        "Vanguard has been enabled.\r\nTo make it take effect you need to reboot your computer.",
+        None,
+    );
+    message_label.set_position(MARGIN, MARGIN);
+    message_label.set_size(440, 60);
+
+    let reboot_now_btn = build_button(&window, "REBOOT NOW");
+    let reboot_later_btn = build_button(&window, "REBOOT LATER (CLOSE THIS WINDOW)");
+    reboot_now_btn.set_position(MARGIN, 100);
+    reboot_now_btn.set_size(130, BUTTON_H as u32);
+    reboot_later_btn.set_position(MARGIN + 140, 100);
+    reboot_later_btn.set_size(300, BUTTON_H as u32);
+    if let Some(h) = reboot_now_btn.handle.hwnd() {
+        darkmode::make_filled_button(h, Role::Error);
+    }
+    if let Some(h) = reboot_later_btn.handle.hwnd() {
+        darkmode::make_text_button(h, Role::Primary);
+    }
+
+    RebootUi { window, _message_label: message_label, reboot_now_btn, reboot_later_btn }
+}
+
 fn build_tray() -> TrayHandles {
     let status_item = MenuItem::new(status_text(VanguardStatus::NotInstalled), false, None);
     let enable_item = MenuItem::new("Enable Vanguard", true, None);
@@ -947,6 +1007,7 @@ fn main() {
     let ui = build_main_ui(&bold_font, &app_icon);
     let commands_ui = build_commands_ui(&mono_font, &app_icon);
     let settings_ui = build_settings_ui(&bold_font, &app_icon);
+    let reboot_ui = build_reboot_ui(&app_icon);
     let tray = build_tray();
 
     let app = Rc::new(AppState {
@@ -955,6 +1016,7 @@ fn main() {
         ui,
         commands_ui,
         settings_ui,
+        reboot_ui,
         last_poll: Cell::new(Instant::now()),
         editing_enable: Cell::new(false),
         editing_disable: Cell::new(false),
@@ -986,6 +1048,8 @@ fn main() {
         match evt {
             E::OnButtonClick => {
                 if handle == app.ui.close_btn.handle {
+                    app.ui.window.set_visible(false);
+                } else if handle == app.ui.hide_btn.handle {
                     app.ui.window.set_visible(false);
                 } else if handle == app.ui.minimize_btn.handle {
                     app.ui.window.minimize();
@@ -1156,8 +1220,30 @@ fn main() {
         }
     });
 
+    let reboot_handle = app.reboot_ui.window.handle;
+    let app_reboot = app.clone();
+    let reboot_handler = nwg::full_bind_event_handler(&reboot_handle, move |evt, data, handle| {
+        use nwg::Event as E;
+        let app = &app_reboot;
+        match evt {
+            E::OnButtonClick => {
+                if handle == app.reboot_ui.reboot_now_btn.handle {
+                    app.reboot_ui.window.set_visible(false);
+                    if let Err(e) = platform::process::reboot_now() {
+                        show_error(&format!("Failed to schedule a reboot:\n{e}"));
+                    }
+                } else if handle == app.reboot_ui.reboot_later_btn.handle {
+                    app.reboot_ui.window.set_visible(false);
+                }
+            }
+            E::OnWindowClose => hide_on_close(&app.reboot_ui.window, handle, &data),
+            _ => {}
+        }
+    });
+
     nwg::dispatch_thread_events();
     nwg::unbind_event_handler(&main_handler);
     nwg::unbind_event_handler(&commands_handler);
     nwg::unbind_event_handler(&settings_handler);
+    nwg::unbind_event_handler(&reboot_handler);
 }
