@@ -274,8 +274,8 @@ struct SettingsUi {
 /// types only take effect on the next boot.
 struct RebootUi {
     window: nwg::Window,
-    // Never read, but owning it keeps the control alive.
-    _message_label: nwg::Label,
+    // Never read, but owning them keeps the controls alive.
+    _message_labels: [nwg::Label; 2],
     reboot_now_btn: nwg::Button,
     reboot_later_btn: nwg::Button,
 }
@@ -892,13 +892,16 @@ fn build_reboot_ui(app_icon: &nwg::Icon) -> RebootUi {
     darkmode::apply_titlebar_theme(hwnd);
     darkmode::install_dark_background(hwnd);
 
-    let message_label = build_label(
-        &window,
-        "Vanguard has been enabled.\r\nTo make it take effect you need to reboot your computer.",
-        None,
-    );
-    message_label.set_position(MARGIN, MARGIN);
-    message_label.set_size(440, 60);
+    // One single-line label per line, each exactly LABEL_H tall: see
+    // AGENTS.md - an nwg::Label taller than its text paints white bands.
+    let message_labels = [
+        build_label(&window, "Vanguard has been enabled.", None),
+        build_label(&window, "To make it take effect you need to reboot your computer.", None),
+    ];
+    for (i, label) in message_labels.iter().enumerate() {
+        label.set_position(MARGIN, MARGIN + 10 + i as i32 * (LABEL_H + LABEL_GAP));
+        label.set_size(440, LABEL_H as u32);
+    }
 
     let reboot_now_btn = build_button(&window, "REBOOT NOW");
     let reboot_later_btn = build_button(&window, "REBOOT LATER (CLOSE THIS WINDOW)");
@@ -913,7 +916,7 @@ fn build_reboot_ui(app_icon: &nwg::Icon) -> RebootUi {
         darkmode::make_text_button(h, Role::Primary);
     }
 
-    RebootUi { window, _message_label: message_label, reboot_now_btn, reboot_later_btn }
+    RebootUi { window, _message_labels: message_labels, reboot_now_btn, reboot_later_btn }
 }
 
 fn build_tray() -> TrayHandles {
