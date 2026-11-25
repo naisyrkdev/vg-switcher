@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.png" alt="VG Switcher logo" width="160"></p>
+
 # VG Switcher
 
 ![Version](https://img.shields.io/badge/version-0.5.0-blue)
