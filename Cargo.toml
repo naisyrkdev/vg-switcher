@@ -1,0 +1,16 @@
+[package]
+name = "VG_Switcher"
+version = "0.5.0"
+edition = "2024"
+license = "MIT"
+
+[dependencies]
+native-windows-gui = "1.0.13"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+tray-icon = "0.26.1"
+winapi = { version = "0.3.9", features = ["uxtheme", "dwmapi", "commctrl", "libloaderapi", "winuser", "wingdi"] }
+
+[build-dependencies]
+embed-manifest = "1.5.1"
+winresource = "0.1.34"
